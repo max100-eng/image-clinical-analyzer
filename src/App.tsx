@@ -2,164 +2,157 @@ import { useState } from 'react';
 import { ImageType, AnalysisResult } from './types';
 import { analyzeImage } from './services/geminiService';
 import AnalysisDisplay from './components/AnalysisDisplay';
-import { Camera, Upload, Activity, AlertCircle, FileText, ChevronRight } from 'lucide-react';
+import { 
+  Activity, FileText, Eye, ShieldAlert, 
+  TestTube, FlaskConical, Upload, ChevronRight 
+} from 'lucide-react';
 
 function App() {
   const [selectedImage, setSelectedImage] = useState<ImageType | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState<string>('general');
+  const [category, setCategory] = useState<string>('ecg');
 
-  const categories = [
-    { id: 'general', name: 'General', icon: Activity },
-    { id: 'ekg', name: 'ECG/EKG', icon: Activity },
-    { id: 'radiology', name: 'Radiología', icon: FileText },
-    { id: 'dermatology', name: 'Dermatología', icon: AlertCircle },
+  const modalities = [
+    { id: 'ecg', name: 'ECG', icon: Activity },
+    { id: 'radiology', name: 'RADIOLOGÍA', icon: FileText },
+    { id: 'retina', name: 'RETINA', icon: Eye },
+    { id: 'dermatoscopy', name: 'DERMATOSCOPIA', icon: ShieldAlert },
+    { id: 'urinalysis', name: 'URIANÁLISIS', icon: TestTube },
+    { id: 'toxicology', name: 'TOXICOLOGÍA', icon: FlaskConical },
   ];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
       setSelectedImage({
         id: Math.random().toString(36).substr(2, 9),
-        url,
+        url: URL.createObjectURL(file),
         file,
         category
       });
-      setAnalysis(null);
-      setError(null);
+      setAnalysis(null); // Limpiar análisis previo al subir nueva imagen
     }
   };
 
-  const handleAnalyze = async () => {
+  const executeAnalysis = async () => {
     if (!selectedImage) return;
-
     setIsAnalyzing(true);
-    setError(null);
     try {
-      const result = await analyzeImage(selectedImage.file, selectedImage.category);
-      setAnalysis(result);
-    } catch (err) {
-      setError('Error al analizar la imagen. Por favor, intente de nuevo.');
-      console.error(err);
+      const res = await analyzeImage(selectedImage.file, category);
+      setAnalysis(res);
+    } catch (error) {
+      console.error("Error en el análisis:", error);
+      alert("Hubo un error al procesar la imagen con la IA.");
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <nav className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Activity className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-[#f8fafc] p-8 font-sans">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* COLUMNA IZQUIERDA: Configuración y Carga */}
+        <div className="lg:col-span-7 space-y-8">
+          {/* Logo y Título */}
+          <div className="flex items-center gap-3">
+            <div className="bg-[#006070] p-2 rounded-lg">
+              <Activity className="text-white w-6 h-6" />
             </div>
-            <h1 className="text-xl font-bold text-slate-900">Clinical AI Agent</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-[#001e2b]">Clinical Intelligence</h1>
+              <p className="text-[#006070] text-[10px] font-black uppercase tracking-[0.2em]">AI Image Analysis</p>
+            </div>
           </div>
-        </div>
-      </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column: Upload and Preview */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <Camera className="w-5 h-5 text-blue-600" />
-                Captura de Imagen
-              </h2>
-              
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setCategory(cat.id)}
-                    className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
-                      category === cat.id
-                        ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
-                        : 'border-slate-200 hover:border-slate-300 text-slate-600'
-                    }`}
-                  >
-                    <cat.icon className="w-4 h-4" />
-                    <span className="text-sm font-medium">{cat.name}</span>
-                  </button>
-                ))}
-              </div>
+          {/* 1. SECCIÓN: Modalidad Diagnóstica */}
+          <section>
+            <h2 className="text-[#001e2b] font-black italic mb-4 flex items-center gap-2 text-sm">
+              <span className="text-[#006070] not-italic">1.</span> MODALIDAD DIAGNÓSTICA
+            </h2>
+            <div className="grid grid-cols-3 gap-4">
+              {modalities.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setCategory(m.id)}
+                  className={`flex flex-col items-center justify-center p-6 rounded-2xl border-b-4 transition-all ${
+                    category === m.id 
+                    ? 'bg-[#006070] text-white border-[#004d5a] shadow-lg' 
+                    : 'bg-white text-[#006070] border-slate-200 hover:bg-slate-50 border-b-slate-300'
+                  }`}
+                >
+                  <m.icon className={`w-8 h-8 mb-2 ${category === m.id ? 'text-white' : 'text-[#006070]'}`} />
+                  <span className="text-[10px] font-black uppercase tracking-tighter">{m.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
 
+          {/* 2. SECCIÓN: Entrada de Imagen */}
+          <section>
+            <h2 className="text-[#001e2b] font-black italic mb-4 flex items-center gap-2 text-sm">
+              <span className="text-[#006070] not-italic">2.</span> ENTRADA DE IMAGEN
+            </h2>
+            <div className="bg-white border-2 border-dashed border-slate-200 rounded-[32px] p-12 text-center shadow-sm">
               {!selectedImage ? (
-                <label className="border-2 border-dashed border-slate-200 rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors group">
-                  <div className="bg-slate-100 p-4 rounded-full group-hover:bg-blue-50 transition-colors">
-                    <Upload className="w-8 h-8 text-slate-400 group-hover:text-blue-600" />
+                <label className="cursor-pointer block">
+                  <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Upload className="text-slate-300 w-10 h-10" />
                   </div>
-                  <span className="mt-4 text-slate-600 font-medium">Subir imagen médica</span>
-                  <span className="mt-1 text-slate-400 text-sm">PNG, JPG hasta 10MB</span>
                   <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
+                  <p className="text-slate-400 font-bold text-sm">Subir imagen médica...</p>
                 </label>
               ) : (
                 <div className="space-y-4">
-                  <div className="relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
-                    <img src={selectedImage.url} alt="Preview" className="w-full h-auto max-h-[400px] object-contain" />
+                  <div className="relative inline-block">
+                    <img src={selectedImage.url} className="max-h-64 mx-auto rounded-xl shadow-md" alt="Preview" />
                     <button 
                       onClick={() => setSelectedImage(null)}
-                      className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-full shadow-lg hover:bg-white text-slate-600"
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-lg"
                     >
-                      <AlertCircle className="w-5 h-5" />
+                      <ShieldAlert className="w-4 h-4" />
                     </button>
                   </div>
-                  <button
-                    onClick={handleAnalyze}
+                  <button 
+                    onClick={executeAnalysis}
                     disabled={isAnalyzing}
-                    className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-200"
+                    className="w-full bg-[#006070] text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#004d5a] transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
                   >
                     {isAnalyzing ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Analizando...
-                      </>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
-                      <>
-                        Generar Informe Clínico
-                        <ChevronRight className="w-5 h-5" />
-                      </>
+                      <>Ejecutar Análisis <ChevronRight className="w-5 h-5" /></>
                     )}
                   </button>
                 </div>
               )}
-
-              {error && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-700 text-sm">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  {error}
-                </div>
-              )}
             </div>
-          </div>
+          </section>
+        </div>
 
-          {/* Right Column: Results */}
-          <div className="space-y-6">
+        {/* COLUMNA DERECHA: Resultados (Núcleo de Inteligencia) */}
+        <div className="lg:col-span-5">
+          <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8 min-h-[600px] flex flex-col sticky top-8">
             {analysis ? (
               <AnalysisDisplay analysis={analysis} />
             ) : (
-              <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center h-full min-h-[400px]">
-                <div className="bg-slate-50 p-6 rounded-full mb-6">
-                  <FileText className="w-12 h-12 text-slate-300" />
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <div className="bg-slate-50 w-24 h-24 rounded-full flex items-center justify-center mb-6">
+                  <FileText className="text-slate-200 w-12 h-12" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Informe Clínico</h3>
-                <p className="text-slate-500 max-w-xs">
-                  Sube una imagen y presiona el botón para generar un análisis detallado mediante IA.
+                <h3 className="text-[#001e2b] text-2xl font-black mb-2">Núcleo de Inteligencia</h3>
+                <p className="text-slate-400 text-sm px-8 leading-relaxed">
+                  Sube una imagen clínica y selecciona la modalidad para recibir una interpretación diagnóstica mediante IA.
                 </p>
               </div>
             )}
           </div>
         </div>
-      </main>
+
+      </div>
     </div>
   );
 }
 
-// ESTO ES LO QUE FALTABA
 export default App;
