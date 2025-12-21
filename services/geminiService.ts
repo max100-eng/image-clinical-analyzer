@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ImageType, AnalysisResult } from "../types";
 
 // Vite utiliza import.meta.env para acceder a las variables de entorno
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 // Inicialización del cliente de Google AI
 const genAI = new GoogleGenerativeAI(API_KEY);
