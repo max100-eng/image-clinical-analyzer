@@ -1,42 +1,47 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { ImageType, AnalysisResult } from "../types";
 
-const API_KEY = process.env.API_KEY;
+// 1. Corrección del nombre de la clase y API Key
+const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
 
 if (!API_KEY) {
   throw new Error("API_KEY environment variable not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// El nombre correcto del SDK es GoogleGenerativeAI
+const genAI = new GoogleGenerativeAI(API_KEY);
 
 const SYSTEM_INSTRUCTION = `
-You are an expert Clinical Intelligence AI assisting medical professionals in the ICS (Institut Català de la Salut) context.
-Your task is to analyze medical images (ECG, Radiology, Retina, Dermatoscopy) objectively and generate reports suitable for Electronic Health Records (EHR/eCAP).
+You are an expert Clinical Intelligence AI. 
+Your task is to analyze medical images (ECG, Radiology, Retina, Dermatoscopy, Urostick, Toxicology) and generate reports.
 
 CRITICAL GUIDELINES:
-1. OBJECTIVITY: Describe exactly what you see. Do not hallucinate features.
-2. CONFIDENCE: Your 'confidenceScore' (0-100) must reflect IMAGE QUALITY and clarity.
-   - 80-100: Crystal clear, diagnostic quality.
-   - <50: Blurry, artifact-heavy, or non-diagnostic.
-3. MODALITY: Correctly identify if it is an X-ray, ECG strip, Fundus photo, etc.
-4. DIAGNOSIS: Do NOT provide a definitive diagnosis (e.g., "This IS melanoma"). Use descriptive clinical terms (e.g., "irregular pigment network suggestive of...").
-5. URGENCY: Set 'urgentAlert' to true ONLY if findings suggest an immediate life-threatening condition (e.g., STEMI, Pneumothorax, Retinal Detachment).
-6. FORMATTING: Use concise, professional medical terminology. Avoid conversational filler. The output should be ready to be pasted into a Clinical Course note.
+1. ECG ANALYSIS: You must ALWAYS provide exactly these 7 technical points in 'clinicalFindings': 
+   - 1. Heart Rate (bpm)
+   - 2. Rhythm
+   - 3. PR Interval (ms)
+   - 4. QT Interval (ms)
+   - 5. Axis
+   - 6. ST Segment
+   - 7. Other abnormalities.
+2. DIAGNOSIS CODE: Provide a number from 1 to 10 based on this scale: 
+   1: Normal, 2: AFib, 3: Bradycardia, 4: Tachycardia, 5: Bundle Branch Block, 6: LVH, 7: Ischemia, 8: PVC/PAC, 9: AV Block, 10: WPW/Long QT.
+3. OBJECTIVITY: Describe exactly what you see using professional medical terminology.
+4. URGENCY: Set 'urgentAlert' to true ONLY for life-threatening conditions (e.g., ST elevation, severe bradycardia).
 `;
 
 const getPromptForType = (type: ImageType): string => {
   switch (type) {
     case ImageType.ECG:
-      return `Analyze this ECG image. Identify rhythm, rate, axis, intervals, and morphological abnormalities (ST changes, T-waves). Return findings in a structured list.`;
+      return `Analyze this ECG. Provide the 7 technical points in clinicalFindings and the numeric code (1-10).`;
     case ImageType.RADIOLOGY:
-      return `Interpret this radiological image. Describe findings in bones, soft tissues, and organs. Note fractures, opacities, or lesions. Use standard radiological reporting terms.`;
+      return `Interpret this radiological image. Describe bones, soft tissues, and organs.`;
     case ImageType.RETINA:
-      return `Analyze this retinal fundus image. Check optic disc, macula, and vessels for signs of retinopathy, glaucoma, or other pathologies.`;
+      return `Analyze this fundus image. Check optic disc, macula, and vessels.`;
     case ImageType.DERMATOSCOPY:
-      return `Analyze this skin lesion using ABCDE criteria. Describe structure, color, and specific dermatoscopic patterns.`;
+      return `Analyze this skin lesion using ABCDE criteria.`;
     default:
-      return `Analyze this clinical image and provide a medical interpretation.`;
+      return `Analyze this clinical image and provide a professional interpretation.`;
   }
 };
 
@@ -46,67 +51,51 @@ export const analyzeImage = async (
   imageType: ImageType
 ): Promise<AnalysisResult> => {
   try {
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      systemInstruction: SYSTEM_INSTRUCTION 
+    });
+
+    // Eliminamos el prefijo 'data:image/jpeg;base64,' si existe
+    const cleanBase64 = base64Data.includes(",") ? base64Data.split(",")[1] : base64Data;
+
     const imagePart = {
       inlineData: {
-        data: base64Data,
+        data: cleanBase64,
         mimeType: mimeType,
       },
     };
 
-    const textPart = {
-      text: getPromptForType(imageType),
-    };
+    const prompt = getPromptForType(imageType);
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts: [imagePart, textPart] },
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: 'application/json',
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [imagePart, { text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1, // Baja temperatura para mayor rigor médico
+        responseMimeType: "application/json",
         responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-                modalityDetected: {
-                    type: Type.STRING,
-                    description: "The specific type of medical image identified (e.g., '12-Lead ECG', 'Chest X-Ray PA View').",
-                },
-                clinicalFindings: {
-                    type: Type.STRING,
-                    description: "Detailed objective clinical observations in Markdown format. Use headings and bullet points. Focus on clear, paste-able text.",
-                },
-                confidenceScore: {
-                    type: Type.NUMBER,
-                    description: "A score (0-100) reflecting image quality and feature clarity.",
-                },
-                urgentAlert: {
-                    type: Type.BOOLEAN,
-                    description: "True ONLY if the findings indicate an immediate emergency.",
-                }
-            },
-            required: ["modalityDetected", "clinicalFindings", "confidenceScore", "urgentAlert"],
+          type: SchemaType.OBJECT,
+          properties: {
+            modalityDetected: { type: SchemaType.STRING },
+            clinicalFindings: { type: SchemaType.STRING, description: "Detailed list of findings or the 7 ECG points" },
+            confidenceScore: { type: SchemaType.NUMBER },
+            urgentAlert: { type: SchemaType.BOOLEAN },
+            finalDiagnosisCode: { type: SchemaType.NUMBER, description: "Numeric code 1-10" }
+          },
+          required: ["modalityDetected", "clinicalFindings", "confidenceScore", "urgentAlert", "finalDiagnosisCode"],
         },
       },
     });
+
+    const response = await result.response;
+    const text = response.text();
     
-    const responseText = response.text;
-    if (!responseText) {
-        throw new Error("Empty response from AI model.");
-    }
-
-    const jsonResult = JSON.parse(responseText);
-
-    return {
-        modalityDetected: jsonResult.modalityDetected,
-        clinicalFindings: jsonResult.clinicalFindings,
-        confidenceScore: jsonResult.confidenceScore,
-        urgentAlert: jsonResult.urgentAlert
-    };
+    // Parseo seguro del JSON
+    const parsedResult = JSON.parse(text);
+    return parsedResult as AnalysisResult;
 
   } catch (error) {
-    console.error("Error analyzing image with Gemini API:", error);
-    if (error instanceof Error && error.message.includes('API_KEY')) {
-        return Promise.reject(new Error("API Error: Invalid or missing API Key. Please check your configuration."));
-    }
-    return Promise.reject(new Error("Failed to get analysis from the AI model."));
+    console.error("Error en Gemini Service:", error);
+    throw new Error("Error al analizar la imagen clínica. Verifique la conexión o el formato de imagen.");
   }
 };
