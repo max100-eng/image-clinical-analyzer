@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ImageType, AnalysisResult } from "../types";
 
-// Vite utiliza import.meta.env para acceder a las variables de entorno
+// Acceso a la variable de entorno configurada en Vercel
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
 // Inicialización del cliente de Google AI
@@ -13,38 +13,39 @@ export const analyzeImage = async (
   type: ImageType
 ): Promise<AnalysisResult> => {
   
-  // Validación de seguridad para la API KEY
-  if (!API_KEY || API_KEY === "") {
-    throw new Error("La clave VITE_GEMINI_API_KEY no está configurada en el servidor.");
+  // 1. Verificación de la API KEY
+  if (!API_KEY) {
+    throw new Error("API Key no detectada. Verifica VITE_GEMINI_API_KEY en Vercel.");
   }
 
   try {
-    // Usamos el modelo Flash que es rápido y eficiente para análisis clínico
+    // 2. Selección del modelo (Gemini 1.5 Flash es el ideal por velocidad)
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // Limpiamos el prefijo base64 si existe (data:image/jpeg;base64,...)
+    // 3. Limpieza del prefijo Base64 (importante para archivos móviles)
     const imageData = base64Image.split(",")[1] || base64Image;
 
+    // 4. Prompt especializado según el tipo de imagen
     const prompt = `
-      Eres un asistente de inteligencia clínica de alta precisión. 
-      Analiza esta imagen médica de tipo: ${type}.
+      Actúa como un asistente experto en análisis clínico multimodal.
+      Analiza la siguiente imagen de tipo: ${type}.
       
-      REGLAS ESTRICTAS:
-      1. Proporciona un análisis técnico detallado.
-      2. Clasifica el nivel de urgencia (BAJA, MEDIA, ALTA, CRÍTICA).
-      3. Genera una lista de hallazgos clave.
-      4. Da una recomendación médica preliminar siempre sugiriendo validación profesional.
+      Instrucciones técnicas:
+      - Identifica hallazgos significativos.
+      - Determina el nivel de urgencia: BAJA, MEDIA, ALTA o CRÍTICA.
+      - Proporciona recomendaciones basadas en guías clínicas estándar.
       
-      Responde EXCLUSIVAMENTE en formato JSON con la siguiente estructura:
+      IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE un objeto JSON válido con esta estructura:
       {
-        "diagnosis": "resumen del diagnóstico",
-        "details": "explicación técnica",
+        "diagnosis": "Resumen claro del hallazgo",
+        "details": "Explicación técnica detallada",
         "urgency": "BAJA | MEDIA | ALTA | CRÍTICA",
-        "recommendations": ["rec 1", "rec 2"],
-        "technicalMetrics": { "key": "valor" }
+        "recommendations": ["lista de pasos a seguir"],
+        "technicalMetrics": { "parámetro": "valor" }
       }
     `;
 
+    // 5. Envío a la IA
     const result = await model.generateContent([
       prompt,
       {
@@ -58,13 +59,13 @@ export const analyzeImage = async (
     const response = await result.response;
     const text = response.text();
     
-    // Limpiar el texto en caso de que Gemini devuelva markdown (```json ... ```)
+    // 6. Limpieza de posibles etiquetas Markdown en la respuesta
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     
     return JSON.parse(cleanJson) as AnalysisResult;
     
   } catch (error) {
-    console.error("Error en geminiService:", error);
-    throw new Error("Error al procesar la imagen con Gemini IA.");
+    console.error("Error en el servicio de análisis:", error);
+    throw new Error("No se pudo completar el análisis clínico. Inténtalo de nuevo.");
   }
 };
