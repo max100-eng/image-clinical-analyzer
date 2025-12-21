@@ -1,64 +1,70 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ImageType, AnalysisResult } from "../types";
 
-// Usamos import.meta.env para Vite y el prefijo VITE_ obligatorio
+// Vite utiliza import.meta.env para acceder a las variables de entorno
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 
+// Inicialización del cliente de Google AI
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-const SYSTEM_INSTRUCTION = `
-You are an expert Clinical Intelligence AI. 
-Your task is to analyze medical images (ECG, Radiology, Retina, Dermatoscopy) and generate reports.
-
-CRITICAL GUIDELINES:
-1. ECG ANALYSIS: Provide exactly these 7 points in 'clinicalFindings': 
-   - 1. Heart Rate (bpm), 2. Rhythm, 3. PR Interval (ms), 4. QT Interval (ms), 5. Axis, 6. ST Segment, 7. Other abnormalities.
-2. DIAGNOSIS CODE: 1: Normal, 2: AFib, 3: Bradycardia, 4: Tachycardia, 5: Bundle Branch Block, 6: LVH, 7: Ischemia, 8: PVC/PAC, 9: AV Block, 10: WPW/Long QT.
-3. OBJECTIVITY: Use professional medical terminology.
-4. URGENCY: Set 'urgentAlert' to true for life-threatening conditions.
-`;
-
 export const analyzeImage = async (
-  base64Data: string,
+  base64Image: string,
   mimeType: string,
-  imageType: ImageType
+  type: ImageType
 ): Promise<AnalysisResult> => {
+  
+  // Validación de seguridad para la API KEY
+  if (!API_KEY || API_KEY === "") {
+    throw new Error("La clave VITE_GEMINI_API_KEY no está configurada en el servidor.");
+  }
+
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      systemInstruction: SYSTEM_INSTRUCTION 
-    });
+    // Usamos el modelo Flash que es rápido y eficiente para análisis clínico
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const cleanBase64 = base64Data.includes(",") ? base64Data.split(",")[1] : base64Data;
+    // Limpiamos el prefijo base64 si existe (data:image/jpeg;base64,...)
+    const imageData = base64Image.split(",")[1] || base64Image;
 
-    const result = await model.generateContent({
-      contents: [{ 
-        role: "user", 
-        parts: [
-          { inlineData: { data: cleanBase64, mimeType } },
-          { text: `Analyze this ${imageType}. Return JSON with clinicalFindings as a list.` }
-        ] 
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            modalityDetected: { type: SchemaType.STRING },
-            clinicalFindings: { type: SchemaType.STRING },
-            confidenceScore: { type: SchemaType.NUMBER },
-            urgentAlert: { type: SchemaType.BOOLEAN },
-            finalDiagnosisCode: { type: SchemaType.NUMBER }
-          },
-          required: ["modalityDetected", "clinicalFindings", "confidenceScore", "urgentAlert", "finalDiagnosisCode"],
+    const prompt = `
+      Eres un asistente de inteligencia clínica de alta precisión. 
+      Analiza esta imagen médica de tipo: ${type}.
+      
+      REGLAS ESTRICTAS:
+      1. Proporciona un análisis técnico detallado.
+      2. Clasifica el nivel de urgencia (BAJA, MEDIA, ALTA, CRÍTICA).
+      3. Genera una lista de hallazgos clave.
+      4. Da una recomendación médica preliminar siempre sugiriendo validación profesional.
+      
+      Responde EXCLUSIVAMENTE en formato JSON con la siguiente estructura:
+      {
+        "diagnosis": "resumen del diagnóstico",
+        "details": "explicación técnica",
+        "urgency": "BAJA | MEDIA | ALTA | CRÍTICA",
+        "recommendations": ["rec 1", "rec 2"],
+        "technicalMetrics": { "key": "valor" }
+      }
+    `;
+
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: imageData,
+          mimeType: mimeType,
         },
       },
-    });
+    ]);
 
-    return JSON.parse(result.response.text());
+    const response = await result.response;
+    const text = response.text();
+    
+    // Limpiar el texto en caso de que Gemini devuelva markdown (```json ... ```)
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    
+    return JSON.parse(cleanJson) as AnalysisResult;
+    
   } catch (error) {
-    console.error("Error:", error);
-    throw new Error("Error en el análisis clínico.");
+    console.error("Error en geminiService:", error);
+    throw new Error("Error al procesar la imagen con Gemini IA.");
   }
 };
