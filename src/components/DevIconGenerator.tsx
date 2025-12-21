@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { DownloadIcon } from './icons/Icons';
 
@@ -99,3 +98,4 @@ export const DevIconGenerator: React.FC = () => {
     </div>
   );
 };
+

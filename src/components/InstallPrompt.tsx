@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ClinicalAppLogo, XCircleIcon } from './icons/Icons';
 
@@ -41,3 +40,4 @@ const InstallPrompt: React.FC<InstallPromptProps> = ({ onInstall, onDismiss }) =
 };
 
 export default InstallPrompt;
+

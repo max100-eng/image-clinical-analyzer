@@ -1,0 +1,7 @@
+{
+  "name": "Clinical Intelligence Image Analyzer",
+  "description": "An AI-powered tool to interpret various clinical images like ECGs, radiological scans, retina images, and dermatoscopy photos. Provides detailed analysis to assist medical professionals.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

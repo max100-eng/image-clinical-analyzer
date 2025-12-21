@@ -1,70 +1,81 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { ImageType, AnalysisResult } from "../types";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { ImageType, AnalysisResult, ChatMessage } from "../types";
 
-// Vite utiliza import.meta.env para acceder a las variables de entorno
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+// Instrucción del sistema para mantener el rigor médico
+const SYSTEM_INSTRUCTION = `Eres "Android Heal", el núcleo de Inteligencia Clínica... (tu texto original)`;
 
-// Inicialización del cliente de Google AI
-const genAI = new GoogleGenerativeAI(API_KEY);
+// Inicialización corregida
+// Nota: En Vite/React se usa import.meta.env.VITE_API_KEY en lugar de process.env
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+
+const getModalityPrompt = (type: string): string => {
+  // Asegúrate de que el valor de 'type' coincida con estos strings o con tu Enum
+  switch (type) {
+    case 'ecg': return "Analiza este ECG. Evalúa ritmo, frecuencia, eje e intervalos...";
+    case 'radiology': return "Analiza esta imagen radiológica. Describe campos pulmonares...";
+    case 'retina': return "Evalúa esta imagen de retina. Analiza la papila óptica...";
+    case 'dermatoscopy': return "Analiza esta lesión dermatoscópica...";
+    case 'urinalysis': return "Interpreta esta tira reactiva de orina (Urostick 10)...";
+    case 'toxicology': return "Analiza este panel de toxicología. Verifica línea C y T...";
+    default: return "Realiza una interpretación clínica exhaustiva.";
+  }
+};
 
 export const analyzeImage = async (
-  base64Image: string,
+  base64Data: string,
   mimeType: string,
-  type: ImageType
+  imageType: string
 ): Promise<AnalysisResult> => {
   
-  // Validación de seguridad para la API KEY
-  if (!API_KEY || API_KEY === "") {
-    throw new Error("La clave VITE_GEMINI_API_KEY no está configurada en el servidor.");
-  }
+  // Usamos Gemini 1.5 Flash: es más rápido y mejor para visión
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    systemInstruction: SYSTEM_INSTRUCTION 
+  });
+
+  const prompt = getModalityPrompt(imageType);
 
   try {
-    // Usamos el modelo Flash que es rápido y eficiente para análisis clínico
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    // Limpiamos el prefijo base64 si existe (data:image/jpeg;base64,...)
-    const imageData = base64Image.split(",")[1] || base64Image;
-
-    const prompt = `
-      Eres un asistente de inteligencia clínica de alta precisión. 
-      Analiza esta imagen médica de tipo: ${type}.
-      
-      REGLAS ESTRICTAS:
-      1. Proporciona un análisis técnico detallado.
-      2. Clasifica el nivel de urgencia (BAJA, MEDIA, ALTA, CRÍTICA).
-      3. Genera una lista de hallazgos clave.
-      4. Da una recomendación médica preliminar siempre sugiriendo validación profesional.
-      
-      Responde EXCLUSIVAMENTE en formato JSON con la siguiente estructura:
-      {
-        "diagnosis": "resumen del diagnóstico",
-        "details": "explicación técnica",
-        "urgency": "BAJA | MEDIA | ALTA | CRÍTICA",
-        "recommendations": ["rec 1", "rec 2"],
-        "technicalMetrics": { "key": "valor" }
+    const result = await model.generateContent({
+      contents: [{
+        role: "user",
+        parts: [
+          { inlineData: { data: base64Data, mimeType: mimeType.split(';')[0] } },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            modalityDetected: { type: SchemaType.STRING },
+            clinicalFindings: { type: SchemaType.STRING },
+            urgentAlert: { type: SchemaType.BOOLEAN },
+            confidenceScore: { type: SchemaType.NUMBER },
+            suggestedFollowUp: { type: SchemaType.STRING },
+            differentialDiagnoses: {
+              type: SchemaType.ARRAY,
+              items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  condition: { type: SchemaType.STRING },
+                  probability: { type: SchemaType.STRING },
+                  reasoning: { type: SchemaType.STRING }
+                },
+                required: ["condition", "probability", "reasoning"]
+              }
+            }
+          },
+          required: ["modalityDetected", "clinicalFindings", "urgentAlert", "differentialDiagnoses"]
+        }
       }
-    `;
+    });
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: imageData,
-          mimeType: mimeType,
-        },
-      },
-    ]);
-
-    const response = await result.response;
-    const text = response.text();
-    
-    // Limpiar el texto en caso de que Gemini devuelva markdown (```json ... ```)
-    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    
-    return JSON.parse(cleanJson) as AnalysisResult;
-    
+    const response = result.response;
+    return JSON.parse(response.text()) as AnalysisResult;
   } catch (error) {
-    console.error("Error en geminiService:", error);
-    throw new Error("Error al procesar la imagen con Gemini IA.");
+    console.error("Error Clínico:", error);
+    throw new Error("Fallo en el motor de análisis.");
   }
 };

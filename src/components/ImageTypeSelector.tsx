@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { ImageType } from '../types';
-import { HeartPulseIcon, LungIcon, EyeIcon, SkinIcon } from './icons/Icons';
+import { HeartPulseIcon, LungIcon, EyeIcon, SkinIcon, BeakerIcon, FlaskIcon } from './icons/Icons';
 
 interface ImageTypeSelectorProps {
   selectedType: ImageType;
@@ -10,9 +9,11 @@ interface ImageTypeSelectorProps {
 
 const imageTypes = [
   { type: ImageType.ECG, label: 'ECG', icon: HeartPulseIcon },
-  { type: ImageType.RADIOLOGY, label: 'Radiology', icon: LungIcon },
+  { type: ImageType.RADIOLOGY, label: 'Radiología', icon: LungIcon },
   { type: ImageType.RETINA, label: 'Retina', icon: EyeIcon },
-  { type: ImageType.DERMATOSCOPY, label: 'Dermatoscopy', icon: SkinIcon },
+  { type: ImageType.DERMATOSCOPY, label: 'Dermatoscopia', icon: SkinIcon },
+  { type: ImageType.URINALYSIS, label: 'Urianálisis', icon: BeakerIcon },
+  { type: ImageType.TOXICOLOGY, label: 'Toxicología', icon: FlaskIcon },
 ];
 
 const ImageTypeButton: React.FC<{
@@ -22,24 +23,26 @@ const ImageTypeButton: React.FC<{
     isSelected: boolean;
     onClick: (type: ImageType) => void;
 }> = ({ type, label, icon: Icon, isSelected, onClick }) => {
-    const baseClasses = "flex-1 flex flex-col items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800";
-    const selectedClasses = "bg-brand-secondary border-brand-secondary text-white shadow-lg scale-105";
-    const unselectedClasses = "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-brand-accent dark:hover:border-brand-accent focus:ring-brand-secondary";
-
     return (
         <button
             onClick={() => onClick(type)}
-            className={`${baseClasses} ${isSelected ? selectedClasses : unselectedClasses}`}
+            className={`flex flex-col items-center justify-center p-5 border-2 rounded-2xl cursor-pointer transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-brand-secondary/20 ${
+                isSelected 
+                ? "bg-brand-primary border-brand-primary text-white shadow-xl scale-105 z-10" 
+                : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-secondary/50 hover:bg-brand-secondary/5"
+            }`}
         >
-            <Icon className="h-8 w-8 mb-2" />
-            <span className="font-semibold text-sm">{label}</span>
+            <div className={`p-3 rounded-xl mb-3 transition-colors ${isSelected ? "bg-white/20" : "bg-gray-50 dark:bg-gray-700"}`}>
+                <Icon className={`h-8 w-8 ${isSelected ? "text-white" : "text-brand-secondary"}`} />
+            </div>
+            <span className="font-black text-xs uppercase tracking-widest">{label}</span>
         </button>
     );
 };
 
 const ImageTypeSelector: React.FC<ImageTypeSelectorProps> = ({ selectedType, onTypeChange }) => {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
       {imageTypes.map(({ type, label, icon }) => (
         <ImageTypeButton
             key={type}
