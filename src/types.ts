@@ -1,18 +1,13 @@
-export enum ImageType {
-  ECG = "ECG",
-  RADIOLOGY = "RADIOLOGY",
-  RETINA = "RETINA",
-  DERMATOSCOPY = "DERMATOSCOPY",
-  UROSTICK = "UROSTICK",
-  TOXICOLOGY = "TOXICOLOGY"
+export interface ImageType {
+  id: string;
+  url: string;
+  file: File;
+  category: string;
 }
 
 export interface AnalysisResult {
   diagnosis: string;
-  details: string;
-  urgency: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRÍTICA';
+  findings: string[];
   recommendations: string[];
-  technicalMetrics?: {
-    [key: string]: string | number;
-  };
+  urgency: 'low' | 'medium' | 'high';
 }

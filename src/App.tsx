@@ -2,128 +2,164 @@ import { useState } from 'react';
 import { ImageType, AnalysisResult } from './types';
 import { analyzeImage } from './services/geminiService';
 import AnalysisDisplay from './components/AnalysisDisplay';
-import './index.css';
+import { Camera, Upload, Activity, AlertCircle, FileText, ChevronRight } from 'lucide-react';
 
 function App() {
-  const [selectedType, setSelectedType] = useState<ImageType | null>(null);
-  const [image, setImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [selectedImage, setSelectedImage] = useState<ImageType | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [category, setCategory] = useState<string>('general');
+
+  const categories = [
+    { id: 'general', name: 'General', icon: Activity },
+    { id: 'ekg', name: 'ECG/EKG', icon: Activity },
+    { id: 'radiology', name: 'Radiología', icon: FileText },
+    { id: 'dermatology', name: 'Dermatología', icon: AlertCircle },
+  ];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-        setResult(null);
-        setError(null);
-      };
-      reader.readAsDataURL(file);
+      const url = URL.createObjectURL(file);
+      setSelectedImage({
+        id: Math.random().toString(36).substr(2, 9),
+        url,
+        file,
+        category
+      });
+      setAnalysis(null);
+      setError(null);
     }
   };
 
   const handleAnalyze = async () => {
-    if (!image || !selectedType) return;
+    if (!selectedImage) return;
 
-    setLoading(true);
+    setIsAnalyzing(true);
     setError(null);
     try {
-      // Extraemos el mimeType (ej: image/jpeg) de la cadena base64
-      const mimeType = image.match(/data:(.*?);base64/)?.[1] || 'image/jpeg';
-      const analysis = await analyzeImage(image, mimeType, selectedType);
-      setResult(analysis);
-    } catch (err: any) {
-      setError(err.message || "Error al conectar con la IA");
+      const result = await analyzeImage(selectedImage.file, selectedImage.category);
+      setAnalysis(result);
+    } catch (err) {
+      setError('Error al analizar la imagen. Por favor, intente de nuevo.');
+      console.error(err);
     } finally {
-      setLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4 font-sans">
-      <header className="max-w-4xl mx-auto text-center py-8">
-        <h1 className="text-3xl font-bold tracking-tight text-blue-400">
-          CLINICAL IMAGE ANALYZER
-        </h1>
-        <p className="text-slate-400 mt-2">Inteligencia Artificial para Soporte Clínico</p>
-      </header>
-
-      <main className="max-w-4xl mx-auto space-y-6">
-        {/* Selector de Categorías */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {Object.values(ImageType).map((type) => (
-            <button
-              key={type}
-              onClick={() => setSelectedType(type)}
-              className={`p-3 rounded-lg border-2 transition-all ${
-                selectedType === type 
-                ? 'border-blue-500 bg-blue-500/20 text-blue-200' 
-                : 'border-slate-700 bg-slate-800 hover:border-slate-500'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <nav className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <Activity className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-slate-900">Clinical AI Agent</h1>
+          </div>
         </div>
+      </nav>
 
-        {/* Zona de Carga de Imagen */}
-        <div className="relative group">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-            id="image-input"
-          />
-          <label
-            htmlFor="image-input"
-            className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-              image ? 'border-green-500/50 bg-slate-800' : 'border-slate-700 bg-slate-800/50 hover:bg-slate-800'
-            }`}
-          >
-            {image ? (
-              <img src={image} alt="Preview" className="h-full w-full object-contain p-2 rounded-xl" />
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column: Upload and Preview */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Camera className="w-5 h-5 text-blue-600" />
+                Captura de Imagen
+              </h2>
+              
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setCategory(cat.id)}
+                    className={`p-3 rounded-xl border flex items-center gap-3 transition-all ${
+                      category === cat.id
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                    }`}
+                  >
+                    <cat.icon className="w-4 h-4" />
+                    <span className="text-sm font-medium">{cat.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              {!selectedImage ? (
+                <label className="border-2 border-dashed border-slate-200 rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors group">
+                  <div className="bg-slate-100 p-4 rounded-full group-hover:bg-blue-50 transition-colors">
+                    <Upload className="w-8 h-8 text-slate-400 group-hover:text-blue-600" />
+                  </div>
+                  <span className="mt-4 text-slate-600 font-medium">Subir imagen médica</span>
+                  <span className="mt-1 text-slate-400 text-sm">PNG, JPG hasta 10MB</span>
+                  <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
+                </label>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
+                    <img src={selectedImage.url} alt="Preview" className="w-full h-auto max-h-[400px] object-contain" />
+                    <button 
+                      onClick={() => setSelectedImage(null)}
+                      className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-full shadow-lg hover:bg-white text-slate-600"
+                    >
+                      <AlertCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleAnalyze}
+                    disabled={isAnalyzing}
+                    className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-200"
+                  >
+                    {isAnalyzing ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Analizando...
+                      </>
+                    ) : (
+                      <>
+                        Generar Informe Clínico
+                        <ChevronRight className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-700 text-sm">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  {error}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Results */}
+          <div className="space-y-6">
+            {analysis ? (
+              <AnalysisDisplay analysis={analysis} />
             ) : (
-              <div className="text-center p-6">
-                <p className="text-4xl mb-2">📸</p>
-                <p className="text-slate-300 font-medium">Tocar para Cargar o Capturar</p>
-                <p className="text-slate-500 text-sm mt-1">ECG, Radiología, Urostick...</p>
+              <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center h-full min-h-[400px]">
+                <div className="bg-slate-50 p-6 rounded-full mb-6">
+                  <FileText className="w-12 h-12 text-slate-300" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">Informe Clínico</h3>
+                <p className="text-slate-500 max-w-xs">
+                  Sube una imagen y presiona el botón para generar un análisis detallado mediante IA.
+                </p>
               </div>
             )}
-          </label>
-        </div>
-
-        {/* Botón de Acción */}
-        <button
-          onClick={handleAnalyze}
-          disabled={!image || !selectedType || loading}
-          className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all ${
-            !image || !selectedType || loading
-            ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-500 active:scale-95 text-white'
-          }`}
-        >
-          {loading ? 'ANALIZANDO IMAGEN...' : 'GENERAR INFORME CLÍNICO'}
-        </button>
-
-        {/* Mensajes de Error */}
-        {error && (
-          <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm text-center">
-            ⚠️ {error}
           </div>
-        )}
-
-        {/* Resultados */}
-        {result && <AnalysisDisplay result={result} />}
+        </div>
       </main>
-
-      <footer className="max-w-4xl mx-auto mt-12 text-center text-slate-600 text-xs">
-        © 2025 Clinical Analyzer - Herramienta de soporte para profesionales. No reemplaza criterio médico.
-      </footer>
     </div>
   );
 }
 
+// ESTO ES LO QUE FALTABA
 export default App;
