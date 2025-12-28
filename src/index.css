@@ -2,19 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  padding: 0;
-  background-color: #ffffff;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
-/* Estilo para que el scroll sea fino como en Gemini */
-::-webkit-scrollbar {
-  width: 6px;
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #f8fafc; /* slate-50 */
 }
-::-webkit-scrollbar-thumb {
-  background: #e0e0e0;
-  border-radius: 10px;
+
+#root {
+  width: 100%;
 }
